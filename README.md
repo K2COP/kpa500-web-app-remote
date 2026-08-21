@@ -169,7 +169,9 @@ To stop it permanently, right-click the task → **Disable** (or **Delete**).
 
 ## Remote operation
 
-Same as the KAT500 app: if you're running [TCI Remote Compactor](https://pure-editions.com/on7off/TCI-Remote-Compactor/) or another tunnel (Tailscale, WireGuard, SSH port-forward) for your station, point it at `http://localhost:8600` alongside the KAT500's `:8500`.
+If you're already running a remote-station setup (e.g. [TCI Remote Compactor](https://pure-editions.com/on7off/TCI-Remote-Compactor/) alongside Thetis/openHPSDR for a Hermes Lite 2 or Apache Labs ANAN), you likely don't need a separate VPN for this. Compactor's **Remote Web Shortcuts** feature proxies local web interfaces through its existing tunnel — point one of its shortcut slots at `http://localhost:8600` and the control panel becomes reachable from wherever you're operating, alongside your SDR control and the KAT500's `:8500` shortcut.
+
+Any other tunnel/VPN that can reach the server's port (Tailscale, WireGuard, SSH port-forward, etc.) works just as well.
 
 ## Notes on the command set
 
