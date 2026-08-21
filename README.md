@@ -169,7 +169,11 @@ To stop it permanently, right-click the task → **Disable** (or **Delete**).
 
 ## Remote operation
 
-If you're already running a remote-station setup (e.g. [TCI Remote Compactor](https://pure-editions.com/on7off/TCI-Remote-Compactor/) alongside Thetis/openHPSDR for a Hermes Lite 2 or Apache Labs ANAN), you likely don't need a separate VPN for this. Compactor's **Remote Web Shortcuts** feature proxies local web interfaces through its existing tunnel — point one of its shortcut slots at `http://localhost:8600` and the control panel becomes reachable from wherever you're operating, alongside your SDR control and the KAT500's `:8500` shortcut.
+If you're already running a remote-station setup (e.g. [TCI Remote Compactor](https://pure-editions.com/on7off/TCI-Remote-Compactor/) alongside Thetis/openHPSDR for a Hermes Lite 2 or Apache Labs ANAN), you likely don't need a separate VPN for this. Compactor's **Remote Web Shortcuts** feature proxies local web interfaces through its existing tunnel.
+
+**If Compactor runs on the same computer this app's server is running on**, point a shortcut slot at `http://localhost:8600`.
+
+**If Compactor runs on a different computer** (e.g. a separate shack PC running Thetis, while this app runs on whatever machine has the KPA500's USB-serial cable), `localhost` means *that* PC, not this one — point the shortcut at this machine's LAN IP instead, e.g. `http://192.168.1.50:8600`. Find this machine's LAN IP with `ipconfig getifaddr en0` (macOS) or `ipconfig` (Windows, look for "IPv4 Address"). Since most routers hand out that address via DHCP and it can change, consider setting a static IP or a DHCP reservation for this machine so the Compactor shortcut doesn't silently break later. If Compactor's shortcut field turns out to only accept `localhost`/`127.0.0.1` targets, fall back to a LAN-spanning tunnel instead (Tailscale, WireGuard, SSH port-forward) — those reach across machines regardless of what Compactor supports. Alongside the KAT500's `:8500` shortcut, this gives you both the tuner and amp reachable remotely.
 
 Any other tunnel/VPN that can reach the server's port (Tailscale, WireGuard, SSH port-forward, etc.) works just as well.
 
