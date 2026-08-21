@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KPA500 Remote</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>KPA500 <span class="subtitle">remote control</span></h1>
+    <div id="connIndicator" class="conn-indicator disconnected">
+      <span class="dot"></span>
+      <span id="connText">Disconnected</span>
+    </div>
+  </header>
+
+  <main>
+    <section id="faultBanner" class="fault-banner hidden">
+      <span id="faultText"></span>
+      <button id="clearFaultBtn">Clear fault</button>
+    </section>
+
+    <section class="panel">
+      <h2>Power</h2>
+      <div class="power-row">
+        <span id="powerStatus" class="power-status off">Unknown</span>
+        <button id="powerOnBtn" class="secondary">Power on</button>
+        <button id="powerOffBtn" class="danger">Power off</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Operate</h2>
+      <div class="operate-buttons">
+        <button class="operate-btn" data-op="0">STANDBY</button>
+        <button class="operate-btn" data-op="1">OPERATE</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Band</h2>
+      <select id="bandSelect"></select>
+    </section>
+
+    <section class="panel">
+      <h2>Power / SWR</h2>
+      <div class="swr-readout">
+        <div>
+          <span class="swr-value" id="wattsValue">&mdash;</span>
+          <span class="swr-label">watts</span>
+        </div>
+        <div>
+          <span class="swr-value secondary-value" id="swrValue">&mdash;</span>
+          <span class="swr-label">SWR</span>
+        </div>
+      </div>
+      <div class="swr-bar-track">
+        <div id="swrBar" class="swr-bar-fill"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>PA Status</h2>
+      <div class="telemetry-readout">
+        <div>
+          <span class="swr-value secondary-value" id="voltsValue">&mdash;</span>
+          <span class="swr-label">volts</span>
+        </div>
+        <div>
+          <span class="swr-value secondary-value" id="ampsValue">&mdash;</span>
+          <span class="swr-label">amps</span>
+        </div>
+        <div>
+          <span class="swr-value secondary-value" id="tempValue">&mdash;</span>
+          <span class="swr-label">heat sink &deg;C</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Power Adjust</h2>
+      <div class="setting-row" style="grid-template-columns: 1fr auto auto;">
+        <label for="powerAdjustInput">Output level (80&ndash;120, per band)</label>
+        <input id="powerAdjustInput" type="number" min="80" max="120" step="1" />
+        <button id="powerAdjustSetBtn">Set</button>
+      </div>
+    </section>
+
+    <section class="panel info-panel">
+      <h2>Device</h2>
+      <dl>
+        <dt>Firmware</dt><dd id="fwValue">&mdash;</dd>
+        <dt>Serial #</dt><dd id="snValue">&mdash;</dd>
+        <dt>Port</dt><dd id="portValue">&mdash;</dd>
+      </dl>
+    </section>
+
+    <section class="panel" id="connectPanel">
+      <h2>Connection</h2>
+      <div class="connect-row">
+        <select id="portSelect"></select>
+        <select id="baudSelect">
+          <option value="">Auto-detect baud</option>
+          <option value="38400">38400</option>
+          <option value="19200">19200</option>
+          <option value="9600">9600</option>
+          <option value="4800">4800</option>
+        </select>
+        <button id="refreshPortsBtn">Refresh</button>
+        <button id="connectBtn">Connect</button>
+      </div>
+    </section>
+
+    <section class="panel settings-panel">
+      <details>
+        <summary>Advanced: amplifier settings</summary>
+
+        <div class="setting-row">
+          <label for="alcInput">ALC threshold (0&ndash;210, per band)</label>
+          <input id="alcInput" type="number" min="0" max="210" step="1" />
+          <button id="alcSetBtn">Set</button>
+        </div>
+
+        <div class="setting-row">
+          <label for="fanInput">Fan minimum speed (0&ndash;6)</label>
+          <input id="fanInput" type="number" min="0" max="6" step="1" />
+          <button id="fanSetBtn">Set</button>
+        </div>
+
+        <div class="setting-row">
+          <label for="trInput">TR delay, TX&rarr;RX (0&ndash;50 ms)</label>
+          <input id="trInput" type="number" min="0" max="50" step="1" />
+          <button id="trSetBtn">Set</button>
+        </div>
+
+        <div class="setting-row">
+          <label for="arInput">Attenuator fault release (1400&ndash;5000 ms)</label>
+          <input id="arInput" type="number" min="1400" max="5000" step="10" />
+          <button id="arSetBtn">Set</button>
+        </div>
+
+        <div class="setting-row">
+          <label>Stay in STBY after band change</label>
+          <div class="toggle-pair">
+            <button id="bcOffBtn" data-val="0">Off</button>
+            <button id="bcOnBtn" data-val="1">On</button>
+          </div>
+          <span></span>
+        </div>
+
+        <div class="setting-row">
+          <label>INHIBIT# input enabled</label>
+          <div class="toggle-pair">
+            <button id="nhOffBtn" data-val="0">Off</button>
+            <button id="nhOnBtn" data-val="1">On</button>
+          </div>
+          <span></span>
+        </div>
+
+        <div class="setting-row">
+          <label>Fault speaker</label>
+          <div class="toggle-pair">
+            <button id="spOffBtn" data-val="0">Off</button>
+            <button id="spOnBtn" data-val="1">On</button>
+          </div>
+          <span></span>
+        </div>
+
+        <div class="setting-row">
+          <label>Demo mode</label>
+          <div class="toggle-pair">
+            <button id="dmoOffBtn" data-val="0">Off</button>
+            <button id="dmoOnBtn" data-val="1">On</button>
+          </div>
+          <span></span>
+        </div>
+
+        <div class="setting-row">
+          <label for="xiTypeSelect">Radio interface</label>
+          <select id="xiTypeSelect">
+            <option value="0">K3</option>
+            <option value="1">BCD</option>
+            <option value="2">Analog (Icom)</option>
+            <option value="3">Elecraft/Kenwood serial</option>
+          </select>
+          <button id="xiSetBtn">Set</button>
+        </div>
+        <div class="setting-row">
+          <label>Poll radio for frequency (Elecraft/Kenwood only)</label>
+          <div class="toggle-pair">
+            <button id="xiOptOffBtn" data-val="0">Off</button>
+            <button id="xiOptOnBtn" data-val="1">On</button>
+          </div>
+          <span></span>
+        </div>
+
+        <p class="setting-hint">
+          PC/XCVR port baud rate (^BRP / ^BRX) can be changed via the raw
+          console below, but isn't exposed as a button here &mdash; changing
+          the PC port's rate will immediately drop this app's connection
+          until you reconnect at the new rate.
+        </p>
+      </details>
+    </section>
+
+    <section class="panel advanced-panel">
+      <details>
+        <summary>Advanced: raw command console</summary>
+        <div class="raw-row">
+          <input id="rawInput" placeholder="e.g. ^RVM or ^BN05" />
+          <button id="rawSendBtn">Send</button>
+        </div>
+        <pre id="logOutput" class="log-output"></pre>
+      </details>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

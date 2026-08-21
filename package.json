@@ -1,0 +1,15 @@
+{
+  "name": "kpa500-web",
+  "version": "0.1.0",
+  "description": "Browser-based remote control for the Elecraft KPA500 linear amplifier",
+  "private": true,
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "serialport": "^12.0.0",
+    "ws": "^8.18.0"
+  }
+}
