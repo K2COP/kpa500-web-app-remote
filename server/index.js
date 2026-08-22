@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { execFile } = require('child_process');
 const express = require('express');
 const { WebSocketServer } = require('ws');
 const KPA500 = require('./kpa500');
@@ -172,8 +173,8 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-// Auto-connect on startup if a port was previously configured.
-if (config.serialPath) {
+function attemptConnect() {
+  if (!config.serialPath) return;
   kpa
     .connect({ path: config.serialPath, baud: config.baudRate || null })
     .then(() => {
@@ -188,3 +189,38 @@ if (config.serialPath) {
     })
     .catch((err) => console.error(`Auto-connect failed: ${err.message}`));
 }
+
+// The official Elecraft KPA Utility.app wants exclusive access to the same
+// physical serial line: it opens /dev/cu.usbserial-*, we open
+// /dev/tty.usbserial-* for the same port, and on macOS those two device
+// nodes can't both be open at once. Unlike this server (which fails fast
+// and retries), the native app doesn't handle losing that race gracefully -
+// it just hangs waiting for the amp. Since this server normally runs
+// all the time via LaunchAgent, that means the native app can never open
+// unless something proactively gets out of its way. Poll for the app and
+// release the port the moment it's running, then reclaim it once the app
+// closes.
+const NATIVE_APP_PATTERN = 'Elecraft KPA Utility.app';
+const NATIVE_APP_POLL_MS = 1000;
+
+function isNativeAppRunning() {
+  return new Promise((resolve) => {
+    execFile('pgrep', ['-f', NATIVE_APP_PATTERN], (err) => resolve(!err));
+  });
+}
+
+async function checkNativeApp() {
+  const running = await isNativeAppRunning();
+  const state = kpa.getState();
+  if (running) {
+    if (state.connected || state.connecting) {
+      console.log(`${NATIVE_APP_PATTERN} detected - releasing serial port`);
+      kpa.disconnect();
+    }
+  } else if (!state.connected && !state.connecting) {
+    attemptConnect();
+  }
+}
+
+setInterval(checkNativeApp, NATIVE_APP_POLL_MS);
+checkNativeApp();
