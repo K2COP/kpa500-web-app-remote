@@ -537,16 +537,18 @@ class KPA500 {
     if (!this.state.connected || this.queue.length > 2) return;
     this.pollTick += 1;
     try {
-      if (this.state.power === false) {
-        // Soft-off: only the bootloader is running, listening for a bare
-        // 'P' byte to power back on. '^PJ' (and any other command) starts
-        // with or contains bytes the bootloader could misread as that wake
-        // trigger, so the only thing safe to poll here is the power check
-        // itself - which lets us notice if the amp comes back on some other
-        // way (rear switch, Elecraft's own app).
-        if (this.pollTick % 5 === 0) await this.getPowerState();
-        return;
-      }
+      // Confirm power state fresh on every tick, before anything else goes
+      // out. The amp can enter soft-off (front-panel button, not just
+      // ^ON0) at any moment, and while it's transitioning its bootloader
+      // treats any stray byte on the line as "cancel, wake back up" - so a
+      // stale cached state.power (checked less often than every tick) lets
+      // routine polling commands land mid-transition and revive it. ^ON is
+      // documented safe to send even to the bootloader (that's how this
+      // check itself works), so it's the only thing allowed to go out
+      // before we know the real state.
+      await this.getPowerState();
+      if (this.state.power !== true) return;
+
       await this.get('^WS').catch(() => {});
       await this.get('^VI').catch(() => {});
       if (this.pollTick % 3 === 0) {
@@ -554,7 +556,6 @@ class KPA500 {
         await this.get('^TM').catch(() => {});
       }
       if (this.pollTick % 5 === 0) {
-        await this.getPowerState();
         await this.get('^OS').catch(() => {});
         await this.get('^BN').catch(() => {});
         await this.get('^PJ').catch(() => {});
