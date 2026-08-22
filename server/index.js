@@ -66,11 +66,9 @@ app.post('/api/command', async (req, res) => {
         await kpa.setOperate(Boolean(value));
         break;
       case 'powerOff':
-        intendedOff = true;
         await kpa.powerOff();
         break;
       case 'powerOn':
-        intendedOff = false;
         kpa.powerOn();
         break;
       case 'band':
@@ -135,7 +133,10 @@ function broadcast(type, payload) {
 }
 
 kpa.on('state', (state) => broadcast('state', state));
-kpa.on('log', (line) => broadcast('log', line));
+kpa.on('log', (line) => {
+  console.log(`[wire] ${line}`);
+  broadcast('log', line);
+});
 
 // Track the amp's last known power state across restarts so a fresh boot
 // can tell "was off, came back on by itself" apart from "was already on".
@@ -148,19 +149,33 @@ kpa.on('state', (state) => {
 
 // Opening the serial port asserts DTR as a side effect of the underlying
 // open() syscall, before any bytes are written, and the KPA500's remote
-// power circuit treats that DTR edge as a wake trigger. A stray byte
-// landing on the wire during the amp's off-transition can *also* revive
-// it, since its bootloader treats any unrecognized byte mid-transition as
-// "cancel, wake back up" - so there's more than one way for it to turn
-// itself back on. Rather than catch one specific cause once at startup,
-// treat "should be off" as a standing invariant for as long as nobody has
-// deliberately asked for it to be on: every observed power:true while that
-// invariant holds gets corrected, not just the first one.
-let intendedOff = config.lastPower === false;
+// power circuit treats that DTR edge as a wake trigger - so the very first
+// power reading after a fresh connect can show "on" even though the amp
+// was actually left off (confirmed via wire log: the amp was already
+// fully booted before this app sent a single byte). This has to be scoped
+// tightly to that one post-open reading, not treated as a standing
+// invariant - the server reconnects periodically now (after the native
+// Elecraft app closes, see below), and a broader check would also fight
+// the user turning the amp on by hand at the front panel or in the native
+// app afterward, mistaking a real power-on for another wake glitch.
+let wasConnected = false;
+let awaitingPostOpenReading = false;
+let expectedOffOnOpen = false;
 kpa.on('state', (state) => {
-  if (state.power === true && intendedOff) {
-    console.log('KPA500 powered on unexpectedly - restoring intended off state');
-    kpa.powerOff().catch((err) => console.error(`Auto power-off failed: ${err.message}`));
+  if (state.connected && !wasConnected) {
+    // Snapshot before the sibling listener above can overwrite
+    // config.lastPower with this same connection's own first reading.
+    expectedOffOnOpen = config.lastPower === false;
+    awaitingPostOpenReading = true;
+  }
+  wasConnected = state.connected;
+
+  if (awaitingPostOpenReading && state.power !== null) {
+    awaitingPostOpenReading = false;
+    if (state.power === true && expectedOffOnOpen) {
+      console.log('KPA500 woke itself on serial port open - restoring prior off state');
+      kpa.powerOff().catch((err) => console.error(`Auto power-off failed: ${err.message}`));
+    }
   }
 });
 
