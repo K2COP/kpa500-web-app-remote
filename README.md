@@ -89,15 +89,27 @@ You should see `KPA500 web control listening on http://localhost:8600`. **Leave 
 ### 5. Plug in the KPA500 and connect
 
 1. Connect the KPA500 to this computer via USB and power it on (rear panel switch).
-2. If you normally run Elecraft's own `KPA500 Utility`, close it first — only one program can hold the serial port at a time.
-3. Open Chrome or Safari and go to **http://localhost:8600**
-4. In the **Connection** panel, pick your device from the port dropdown, leave baud on **Auto-detect**, and click **Connect**.
+2. Open a browser (any browser works — Chrome, Safari, mobile) and go to **http://localhost:8600**
+3. In the **Connection** panel, pick your device from the port dropdown, leave baud on **Auto-detect**, and click **Connect**.
+
+You do **not** need to quit Elecraft's own `KPA500 Utility` first — see "Running alongside Elecraft's native app" below for how the two share the port automatically.
 
 If the port doesn't show up, the USB-to-serial adapter's driver probably isn't installed — check [Silicon Labs](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers) or [FTDI](https://ftdichip.com/drivers/vcp-drivers/) depending on your adapter's chip.
 
 ### Next time
 
 Just repeat steps 3–4 (`npm start`), then open the browser page again. The server remembers your serial port and baud rate and reconnects automatically.
+
+### Running alongside Elecraft's native app
+
+Only one program can hold the KPA500's serial port at a time, but this app and Elecraft's own `KPA500 Utility` share it automatically — no manual quitting required, in either direction:
+
+- **The server only holds the port while a browser tab of this app is actually open.** Close the last tab (or just don't open one) and the port sits free for the native app to grab.
+- **If a browser tab is open and you launch the native app anyway**, the server detects it almost immediately (well under a second), releases the port, and gets out of the way. The native app opens normally.
+- **When you quit the native app**, the server notices and reconnects automatically just as fast — no need to touch the browser tab; it'll pick back up on its own.
+- It doesn't matter which browser or how many tabs — any open tab of this app counts as "in use." A page refresh briefly closes and reopens that tab's connection, which the server tolerates without bouncing the serial port.
+
+In short: just open whichever one you want to use. The other gets out of the way by itself.
 
 Running this alongside the [KAT500 web remote](https://github.com/K2COP/kat-500-web-app-remote)? They use different ports by default (KAT500 on 8500, KPA500 on 8600) so both can run at once, each in its own terminal — closing/Ctrl-C'ing one won't affect the other. Change `httpPort` in `config.json` if either conflicts with something else on your machine.
 
