@@ -491,31 +491,23 @@ class KPA500 {
   // --- polling --------------------------------------------------------------
 
   async primeState() {
+    // Soft-off (or a still-booting amp) leaves only the bootloader running,
+    // listening for a bare 'P' byte to power back on. Any other command -
+    // notably '^PJ', which starts with that same byte - would be misread as
+    // that wake trigger. It's not enough to check this once up front: power
+    // can drop mid-sequence (e.g. a concurrent corrective powerOff() from
+    // the DTR-wake guard), so re-check before every single command and bail
+    // out the moment it's no longer confirmed on.
+    const steps = [
+      '^OS', '^RVM', '^SN', '^BN', '^PJ', '^AL', '^FC', '^TR', '^AR',
+      '^BC', '^NH', '^DMO', '^SP', '^XI', '^FL', '^WS', '^VI', '^TM',
+    ];
     try {
       await this.getPowerState();
-      // Soft-off leaves only the bootloader running, listening for a bare
-      // 'P' byte to power back on. Any other command - notably '^PJ', which
-      // starts with that same byte - would be misread as that wake trigger,
-      // so don't send anything else until the amp is confirmed on.
-      if (this.state.power === false) return;
-      await this.get('^OS').catch(() => {});
-      await this.get('^RVM').catch(() => {});
-      await this.get('^SN').catch(() => {});
-      await this.get('^BN').catch(() => {});
-      await this.get('^PJ').catch(() => {});
-      await this.get('^AL').catch(() => {});
-      await this.get('^FC').catch(() => {});
-      await this.get('^TR').catch(() => {});
-      await this.get('^AR').catch(() => {});
-      await this.get('^BC').catch(() => {});
-      await this.get('^NH').catch(() => {});
-      await this.get('^DMO').catch(() => {});
-      await this.get('^SP').catch(() => {});
-      await this.get('^XI').catch(() => {});
-      await this.get('^FL').catch(() => {});
-      await this.get('^WS').catch(() => {});
-      await this.get('^VI').catch(() => {});
-      await this.get('^TM').catch(() => {});
+      for (const cmd of steps) {
+        if (this.state.power !== true) return;
+        await this.get(cmd).catch(() => {});
+      }
     } catch (err) {
       /* connection may have dropped mid-sequence; polling loop will retry */
     }
@@ -550,15 +542,22 @@ class KPA500 {
       if (this.state.power !== true) return;
 
       await this.get('^WS').catch(() => {});
+      if (this.state.power !== true) return;
       await this.get('^VI').catch(() => {});
       if (this.pollTick % 3 === 0) {
+        if (this.state.power !== true) return;
         await this.get('^FL').catch(() => {});
+        if (this.state.power !== true) return;
         await this.get('^TM').catch(() => {});
       }
       if (this.pollTick % 5 === 0) {
+        if (this.state.power !== true) return;
         await this.get('^OS').catch(() => {});
+        if (this.state.power !== true) return;
         await this.get('^BN').catch(() => {});
+        if (this.state.power !== true) return;
         await this.get('^PJ').catch(() => {});
+        if (this.state.power !== true) return;
         await this.get('^AL').catch(() => {});
       }
     } catch (err) {

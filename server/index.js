@@ -65,9 +65,11 @@ app.post('/api/command', async (req, res) => {
         await kpa.setOperate(Boolean(value));
         break;
       case 'powerOff':
+        intendedOff = true;
         await kpa.powerOff();
         break;
       case 'powerOn':
+        intendedOff = false;
         kpa.powerOn();
         break;
       case 'band':
@@ -134,6 +136,33 @@ function broadcast(type, payload) {
 kpa.on('state', (state) => broadcast('state', state));
 kpa.on('log', (line) => broadcast('log', line));
 
+// Track the amp's last known power state across restarts so a fresh boot
+// can tell "was off, came back on by itself" apart from "was already on".
+kpa.on('state', (state) => {
+  if (state.power !== null && state.power !== config.lastPower) {
+    config.lastPower = state.power;
+    saveConfig(config);
+  }
+});
+
+// Opening the serial port asserts DTR as a side effect of the underlying
+// open() syscall, before any bytes are written, and the KPA500's remote
+// power circuit treats that DTR edge as a wake trigger. A stray byte
+// landing on the wire during the amp's off-transition can *also* revive
+// it, since its bootloader treats any unrecognized byte mid-transition as
+// "cancel, wake back up" - so there's more than one way for it to turn
+// itself back on. Rather than catch one specific cause once at startup,
+// treat "should be off" as a standing invariant for as long as nobody has
+// deliberately asked for it to be on: every observed power:true while that
+// invariant holds gets corrected, not just the first one.
+let intendedOff = config.lastPower === false;
+kpa.on('state', (state) => {
+  if (state.power === true && intendedOff) {
+    console.log('KPA500 powered on unexpectedly - restoring intended off state');
+    kpa.powerOff().catch((err) => console.error(`Auto power-off failed: ${err.message}`));
+  }
+});
+
 wss.on('connection', (ws) => {
   ws.send(JSON.stringify({ type: 'state', payload: kpa.getState() }));
 });
@@ -147,5 +176,15 @@ process.on('SIGINT', () => {
 if (config.serialPath) {
   kpa
     .connect({ path: config.serialPath, baud: config.baudRate || null })
+    .then(() => {
+      // Persist whatever baud we ended up on so the next process start
+      // (e.g. the LaunchAgent firing at login/reboot) reuses it via
+      // openAt() instead of re-running autoBaud().
+      const { baud } = kpa.getState();
+      if (baud && baud !== config.baudRate) {
+        config.baudRate = baud;
+        saveConfig(config);
+      }
+    })
     .catch((err) => console.error(`Auto-connect failed: ${err.message}`));
 }
