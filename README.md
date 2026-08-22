@@ -208,7 +208,9 @@ Companion project: [KAT500 web remote](https://github.com/K2COP/kat-500-web-app-
 
 ## Disclaimer
 
-This is an independent, community project and is not affiliated with, endorsed by, or supported by Elecraft, Inc. "Elecraft" and "KPA500" are trademarks of Elecraft, Inc. Use at your own risk — this software controls a live RF power amplifier.
+This is an independent, community project and is not affiliated with, endorsed by, or supported by Elecraft, Inc. "Elecraft" and "KPA500" are trademarks of Elecraft, Inc.
+
+This software may not be compatible with every KPA500 unit, firmware revision, or setup, and every attempt has been made to test it thoroughly and catch bugs before release — but no guarantee is made that it is free of them. You use this software entirely at your own risk. By using it, you assume full responsibility for any damage, injury, data loss, or other consequence that results, including but not limited to damage to the amplifier, connected equipment, or antenna system. The author(s) and contributors are not liable for any direct, indirect, incidental, or consequential loss or damage arising from its use. This software controls a live RF power amplifier — verify its behavior on your own equipment before relying on it, and always be prepared to fall back to the amp's own front-panel controls.
 
 ## License
 
