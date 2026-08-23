@@ -353,12 +353,20 @@ class KPA500 {
 
   /** ^ON is documented to produce NO response at all when the amp is off,
    * so a timeout here is a normal, meaningful result (not a dropped byte)
-   * and must not be swallowed like other polled GETs. */
+   * and must not be swallowed like other polled GETs. In practice the
+   * bootloader sometimes instead echoes the bare query back with no status
+   * digit ("^ON" instead of "^ON0"/"^ON1") rather than staying silent -
+   * that's not a dropped/garbled read, it's the same "amp is off" case as
+   * the timeout, and must be treated the same way. Previously this fell
+   * through to "leave power unchanged," which could get stuck at its
+   * initial `null` forever (seen live: power state never resolved, so the
+   * UI's Power On button - gated on state.power === false exactly - never
+   * enabled). */
   async getPowerState() {
     try {
       const token = await this.get('^ON', 600);
       const m = /^\^ON(\d)$/.exec(token);
-      this.setState({ power: m ? m[1] === '1' : this.state.power });
+      this.setState({ power: m ? m[1] === '1' : false });
     } catch (err) {
       this.setState({ power: false });
     }
