@@ -181,11 +181,30 @@ To stop it permanently, right-click the task → **Disable** (or **Delete**).
 
 ## Remote operation
 
-If you're already running a remote-station setup (e.g. [TCI Remote Compactor](https://pure-editions.com/on7off/TCI-Remote-Compactor/) alongside Thetis/openHPSDR for a Hermes Lite 2 or Apache Labs ANAN), you likely don't need a separate VPN for this. Compactor's **Remote Web Shortcuts** feature proxies local web interfaces through its existing tunnel.
+If you're already running a remote-station setup (e.g. [TCI Remote Compactor](https://pure-editions.com/on7off/TCI-Remote-Compactor/) alongside Thetis/openHPSDR for a Hermes Lite 2 or Apache Labs ANAN), you likely don't need a separate VPN for this. Compactor's **Remote Web Shortcuts** feature proxies local web interfaces through its existing tunnel — confirmed working end-to-end with this app.
 
-**If Compactor runs on the same computer this app's server is running on**, point a shortcut slot at `http://localhost:8600`.
+### Configuring the shortcut in Compactor
 
-**If Compactor runs on a different computer** (e.g. a separate shack PC running Thetis, while this app runs on whatever machine has the KPA500's USB-serial cable), `localhost` means *that* PC, not this one — point the shortcut at this machine's LAN IP instead, e.g. `http://192.168.1.50:8600`. Find this machine's LAN IP with `ipconfig getifaddr en0` (macOS) or `ipconfig` (Windows, look for "IPv4 Address"). Since most routers hand out that address via DHCP and it can change, consider setting a static IP or a DHCP reservation for this machine so the Compactor shortcut doesn't silently break later. If Compactor's shortcut field turns out to only accept `localhost`/`127.0.0.1` targets, fall back to a LAN-spanning tunnel instead (Tailscale, WireGuard, SSH port-forward) — those reach across machines regardless of what Compactor supports. Alongside the KAT500's `:8500` shortcut, this gives you both the tuner and amp reachable remotely.
+In the Compactor desktop app, open **Zero-Config Remote** → **Remote Web Shortcuts**. Each of the 5 slots takes separate fields — not a single URL:
+
+| Field | Value |
+|---|---|
+| En | check to enable |
+| Name/Lab | anything, e.g. `KPA500` |
+| IP Address | the LAN IP of the machine running this app's server |
+| Port | `8600` |
+| Path | leave blank |
+| Username / Password | leave blank (this app has no built-in auth) |
+
+**If Compactor runs on the same computer as this app's server**, use `127.0.0.1` or that machine's own LAN IP — either works.
+
+**If Compactor runs on a different computer** (e.g. a separate shack PC running Thetis, while this app runs on whatever machine has the KPA500's USB-serial cable), you need *this machine's* LAN IP, not Compactor's. Find it with `ipconfig getifaddr en0` (macOS) or `ipconfig` (Windows, look for "IPv4 Address"). Since most routers hand out that address via DHCP and it can change, consider a static IP or a DHCP reservation so the shortcut doesn't silently break later. Click **Save Shortcuts** afterward; the row should show "Tunnel active" with a running uptime once it's picked up the config. Alongside a KAT500 shortcut on its own port, this gives you both the tuner and amp reachable remotely.
+
+If Compactor's fields ever turn out not to reach across machines in your setup, fall back to a LAN-spanning tunnel instead (Tailscale, WireGuard, SSH port-forward) — those reach across machines regardless of what Compactor supports.
+
+### Finding it in the TCI Remote phone app
+
+This part isn't obvious from the app's main screen and isn't in the in-app help: configured Web Shortcuts show up as a **small world/globe icon just below the panadapter/waterfall display**, not in the settings menu or the satellite-dish "remote SDR voting" icon near the top controls. Tap it to get a popup listing your enabled shortcuts, then tap one to open that app's UI in the built-in browser — no need to type an address yourself.
 
 Any other tunnel/VPN that can reach the server's port (Tailscale, WireGuard, SSH port-forward, etc.) works just as well.
 
