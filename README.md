@@ -198,13 +198,22 @@ In the Compactor desktop app, open **Zero-Config Remote** → **Remote Web Short
 
 **If Compactor runs on the same computer as this app's server**, use `127.0.0.1` or that machine's own LAN IP — either works.
 
-**If Compactor runs on a different computer** (e.g. a separate shack PC running Thetis, while this app runs on whatever machine has the KPA500's USB-serial cable), you need *this machine's* LAN IP, not Compactor's. Find it with `ipconfig getifaddr en0` (macOS) or `ipconfig` (Windows, look for "IPv4 Address"). Since most routers hand out that address via DHCP and it can change, consider a static IP or a DHCP reservation so the shortcut doesn't silently break later. Click **Save Shortcuts** afterward; the row should show "Tunnel active" with a running uptime once it's picked up the config. Alongside a KAT500 shortcut on its own port, this gives you both the tuner and amp reachable remotely.
+**If Compactor runs on a different computer** (e.g. a separate shack PC running Thetis, while this app runs on whatever machine has the KPA500's USB-serial cable), you need *this machine's* LAN IP, not Compactor's. Find it with `ipconfig getifaddr en0` (macOS) or `ipconfig` (Windows, look for "IPv4 Address"). Since most routers hand out that address via DHCP and it can change, consider a static IP or a DHCP reservation so the shortcut doesn't silently break later. Click **Save Shortcuts** afterward; the row should show "Tunnel active" with a running uptime once it's picked up the config.
+
+Use a second shortcut slot for the companion [KAT500 web remote](https://github.com/K2COP/kat-500-web-app-remote) the same way, just with its own port — that app defaults to `8500` (vs. this app's `8600`). Same IP-address rule applies: `127.0.0.1` if it runs on the same machine as this app's server, otherwise that machine's own LAN IP. With both slots enabled you get the tuner and amp reachable remotely side by side.
 
 If Compactor's fields ever turn out not to reach across machines in your setup, fall back to a LAN-spanning tunnel instead (Tailscale, WireGuard, SSH port-forward) — those reach across machines regardless of what Compactor supports.
 
 ### Finding it in the TCI Remote phone app
 
 This part isn't obvious from the app's main screen and isn't in the in-app help: configured Web Shortcuts show up as a **small world/globe icon just below the panadapter/waterfall display**, not in the settings menu or the satellite-dish "remote SDR voting" icon near the top controls. Tap it to get a popup listing your enabled shortcuts, then tap one to open that app's UI in the built-in browser — no need to type an address yourself.
+
+Once tapped, each shortcut opens this app's panel right inside TCI Remote's built-in browser, with a "Back to TCI Remote" link and PTT slider layered on top:
+
+<p float="left">
+  <img src="docs/tci-remote-kpa500.png" alt="KPA500 remote control opened inside the TCI Remote phone app" width="45%" />
+  <img src="docs/tci-remote-kat500.png" alt="KAT500 remote control opened inside the TCI Remote phone app" width="45%" />
+</p>
 
 Any other tunnel/VPN that can reach the server's port (Tailscale, WireGuard, SSH port-forward, etc.) works just as well.
 
