@@ -41,10 +41,25 @@ async function postCommand(action, value) {
 // --- Power -----------------------------------------------------------------
 
 el('powerOnBtn').addEventListener('click', () => postCommand('powerOn'));
-el('powerOffBtn').addEventListener('click', () => {
-  if (confirm('Power off the KPA500? This soft-powers down the amplifier.')) {
+// Two-tap confirm instead of confirm(): embedded web views (e.g. TCI Remote
+// Web Shortcuts) block native dialogs, which makes confirm() return false.
+const powerOffBtn = el('powerOffBtn');
+let powerOffArmTimer = null;
+function disarmPowerOff() {
+  clearTimeout(powerOffArmTimer);
+  powerOffArmTimer = null;
+  powerOffBtn.classList.remove('armed');
+  powerOffBtn.textContent = 'Power off';
+}
+powerOffBtn.addEventListener('click', () => {
+  if (powerOffArmTimer) {
+    disarmPowerOff();
     postCommand('powerOff');
+    return;
   }
+  powerOffBtn.classList.add('armed');
+  powerOffBtn.textContent = 'Tap again to power off';
+  powerOffArmTimer = setTimeout(disarmPowerOff, 4000);
 });
 
 // --- Operate / Standby -------------------------------------------------------

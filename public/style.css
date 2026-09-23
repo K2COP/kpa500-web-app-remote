@@ -91,6 +91,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 button.secondary { background: transparent; }
 button.danger { border-color: var(--red); }
 button.danger:hover { background: var(--red); color: #fff; }
+button.danger.armed { background: var(--red); color: #fff; }
 
 select, input {
   font: inherit;
