@@ -1,5 +1,8 @@
 {
   "httpPort": 8600,
   "serialPath": null,
-  "baudRate": null
+  "baudRate": null,
+  "bindHost": null,
+  "allowedHosts": [],
+  "auth": { "username": "", "password": "" }
 }

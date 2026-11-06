@@ -179,6 +179,26 @@ The task also runs immediately the next time you log in. To test it now without 
 
 To stop it permanently, right-click the task → **Disable** (or **Delete**).
 
+## Security
+
+By default the server accepts connections from any device on your network, with no password — fine on a trusted home LAN, but anyone who can reach port `8600` can operate the amplifier. A few protections are always on, and a password is available if you want one.
+
+**Always on (no setup needed):**
+
+- **Other websites can't control it.** A web page you happen to visit can't send commands to the server or open its live connection — requests that come from another site are refused. (Without this, any page open in a browser on your network could quietly reach the amplifier.)
+- **DNS-rebinding protection.** The server only answers when addressed by an IP address, `localhost`, this computer's own name (e.g. `my-mac.local`), or a name you've listed in `allowedHosts`. If you reach it through a tunnel or proxy that uses some other hostname and it shows `Forbidden: unrecognized host`, add that hostname to `allowedHosts` in `config.json` — the server log names the exact host it rejected.
+- **Only real serial ports.** The Connect screen only accepts ports the operating system actually reports as serial ports.
+
+**Optional settings in `config.json`** (see `config.example.json`; restart the app after editing):
+
+| Setting | What it does |
+|---|---|
+| `"auth": { "username": "...", "password": "..." }` | Requires a password. Browsers show a sign-in box; TCI Remote Compactor sends it from its Username/Password fields. For clients that can't do either, open the page once as `http://<ip>:8600/?token=<password>` — it's remembered in a cookie and removed from the address bar. Leave `username` empty to accept any username. |
+| `"bindHost": "127.0.0.1"` | Refuses connections from other machines entirely — use this if the only access is from this computer (or a tunnel that runs on it). |
+| `"allowedHosts": ["shack.example.net"]` | Extra hostnames to accept (see DNS-rebinding above). |
+
+If you want to reach the app from outside your home network, use a VPN or tunnel (Tailscale, WireGuard, TCI Remote Compactor, SSH) — don't port-forward it on your router, and set a password if anything other than you can reach it.
+
 ## Remote operation
 
 If you're already running a remote-station setup (e.g. [TCI Remote Compactor](https://pure-editions.com/on7off/TCI-Remote-Compactor/) alongside Thetis/openHPSDR for a Hermes Lite 2 or Apache Labs ANAN), you likely don't need a separate VPN for this. Compactor's **Remote Web Shortcuts** feature proxies local web interfaces through its existing tunnel — confirmed working end-to-end with this app.
@@ -194,7 +214,7 @@ In the Compactor desktop app, open **Zero-Config Remote** → **Remote Web Short
 | IP Address | the LAN IP of the machine running this app's server |
 | Port | `8600` |
 | Path | leave blank |
-| Username / Password | leave blank (this app has no built-in auth) |
+| Username / Password | leave blank, or the `auth` username/password from `config.json` if you set one (see [Security](#security)) |
 
 **If Compactor runs on the same computer as this app's server**, use `127.0.0.1` or that machine's own LAN IP — either works.
 

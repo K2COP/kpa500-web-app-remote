@@ -4,6 +4,7 @@ const { execFile } = require('child_process');
 const express = require('express');
 const { WebSocketServer } = require('ws');
 const KPA500 = require('./kpa500');
+const { createGuards } = require('./security');
 
 const CONFIG_PATH = path.join(__dirname, '..', 'config.json');
 
@@ -22,7 +23,13 @@ function saveConfig(config) {
 const config = loadConfig();
 const kpa = new KPA500();
 
+const guards = createGuards({ getConfig: () => config, appName: 'KPA500' });
+
 const app = express();
+app.disable('x-powered-by');
+// Must run before static files and the API: Host/Origin checks and the
+// optional password apply to everything this server serves.
+app.use(guards.httpMiddleware);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -43,6 +50,12 @@ app.post('/api/connect', async (req, res) => {
   const { path: serialPath, baud } = req.body || {};
   if (!serialPath) return res.status(400).json({ error: 'path is required' });
   try {
+    // Only open devices the OS actually reports as serial ports, so the
+    // API can't be pointed at an arbitrary /dev node.
+    const ports = await kpa.listPorts();
+    if (!ports.some((p) => p.path === serialPath)) {
+      return res.status(400).json({ error: `not a known serial port: ${serialPath}` });
+    }
     await kpa.connect({ path: serialPath, baud: baud || null });
     config.serialPath = serialPath;
     config.baudRate = baud || null;
@@ -119,11 +132,17 @@ app.post('/api/command', async (req, res) => {
   }
 });
 
-const server = app.listen(config.httpPort, () => {
-  console.log(`KPA500 web control listening on http://localhost:${config.httpPort}`);
+// bindHost (optional): e.g. "127.0.0.1" to refuse connections from other
+// machines entirely. Default: all interfaces, so phones/other shack PCs on
+// the LAN (and TCI Remote Compactor on another machine) can reach it.
+const server = app.listen(config.httpPort, config.bindHost || undefined, () => {
+  console.log(`KPA500 web control listening on http://${config.bindHost || 'localhost'}:${config.httpPort}`);
+  if (!config.auth || !config.auth.password) {
+    console.log('No password set (config.json "auth") - anyone who can reach this port can operate the amp');
+  }
 });
 
-const wss = new WebSocketServer({ server, path: '/ws' });
+const wss = new WebSocketServer({ server, path: '/ws', verifyClient: guards.verifyWsClient });
 
 function broadcast(type, payload) {
   const msg = JSON.stringify({ type, payload });
