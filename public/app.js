@@ -25,16 +25,37 @@ BANDS.forEach((b) => {
 let suppressBandChange = false;
 let currentState = {};
 
+// In-page error toast instead of alert(): embedded web views (e.g. TCI Remote
+// Web Shortcuts) silently block native dialogs, so errors would never show.
+const errorToast = el('errorToast');
+let errorToastTimer = null;
+function showError(msg) {
+  errorToast.textContent = msg;
+  errorToast.classList.remove('hidden');
+  clearTimeout(errorToastTimer);
+  errorToastTimer = setTimeout(() => errorToast.classList.add('hidden'), 6000);
+}
+errorToast.addEventListener('click', () => {
+  clearTimeout(errorToastTimer);
+  errorToast.classList.add('hidden');
+});
+
 async function postCommand(action, value) {
-  const res = await fetch('/api/command', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, value }),
-  });
+  let res;
+  try {
+    res = await fetch('/api/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, value }),
+    });
+  } catch (err) {
+    showError(`${action} failed: server unreachable`);
+    return;
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     console.error('command failed', action, body.error);
-    alert(`${action} failed: ${body.error || res.statusText}`);
+    showError(`${action} failed: ${body.error || res.statusText}`);
   }
 }
 
@@ -126,7 +147,7 @@ el('connectBtn').addEventListener('click', async () => {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    alert(`Connect failed: ${body.error || res.statusText}`);
+    showError(`Connect failed: ${body.error || res.statusText}`);
   }
 });
 
