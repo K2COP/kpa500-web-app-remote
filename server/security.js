@@ -10,8 +10,8 @@
 //  - Cross-site WebSocket hijacking / cross-site requests: a page on some
 //    other site opening ws://<this-machine>:<port>/ws (which, on the KPA500,
 //    opens the serial port and can wake the amp via DTR). Blocked by
-//    rejecting browser requests whose Origin isn't loopback, a private-LAN
-//    address, or one of this machine's own names.
+//    requiring a browser's Origin to match the request's own host:port
+//    (or be listed in config.allowedOrigins).
 //  - Anyone on the network operating the device: optional password
 //    (config.auth.password). Accepted as HTTP Basic auth (what TCI Remote
 //    Compactor's Username/Password fields send), as ?token=<password> on
@@ -32,29 +32,6 @@ function bareHost(hostHeader) {
   const firstColon = h.indexOf(':');
   if (firstColon !== -1 && firstColon === h.lastIndexOf(':')) h = h.slice(0, firstColon);
   return h.replace(/\.$/, '');
-}
-
-function isPrivateIp(ip) {
-  const v = net.isIP(ip);
-  if (v === 4) {
-    const [a, b] = ip.split('.').map(Number);
-    return (
-      a === 127 ||
-      a === 10 ||
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168) ||
-      (a === 169 && b === 254) ||
-      (a === 100 && b >= 64 && b <= 127) // CGNAT range - Tailscale uses it
-    );
-  }
-  if (v === 6) {
-    const lower = ip.toLowerCase();
-    if (lower === '::1') return true;
-    const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(lower);
-    if (mapped) return isPrivateIp(mapped[1]);
-    return /^f[cd]/.test(lower) || /^fe[89ab]/.test(lower); // ULA, link-local
-  }
-  return false;
 }
 
 function ownNames(extra) {
@@ -85,7 +62,15 @@ function parseCookies(header) {
     .split(';')
     .forEach((part) => {
       const i = part.indexOf('=');
-      if (i > 0) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+      if (i <= 0) return;
+      const raw = part.slice(i + 1).trim();
+      let value = raw;
+      try {
+        value = decodeURIComponent(raw);
+      } catch (e) {
+        /* malformed %-escape: keep raw, it just won't match */
+      }
+      out[part.slice(0, i).trim()] = value;
     });
   return out;
 }
@@ -99,11 +84,19 @@ function createGuards({ getConfig, appName }) {
   // Cookies are scoped per host, not per port, so the KAT500 and KPA500
   // remotes on the same machine need distinct cookie names.
   const cookieName = `${appName.toLowerCase()}_session`;
+  // Bounded, so a flood of distinct junk headers can't grow memory.
   const warned = new Set();
+  const MAX_WARNED = 100;
+
+  function clip(v) {
+    const s = String(v);
+    return s.length > 100 ? `${s.slice(0, 100)}…` : s;
+  }
 
   function warnOnce(key, msg) {
-    if (warned.has(key)) return;
-    warned.add(key);
+    const k = clip(key);
+    if (warned.has(k) || warned.size >= MAX_WARNED) return;
+    warned.add(k);
     console.warn(msg);
   }
 
@@ -127,7 +120,21 @@ function createGuards({ getConfig, appName }) {
     return ownNames(getConfig().allowedHosts).has(host);
   }
 
-  function isAllowedOrigin(origin) {
+  /** host:port as the browser would put it in an Origin (default port dropped). */
+  function normalizeAuthority(scheme, authority) {
+    try {
+      return new URL(`${scheme}://${authority}`).host.toLowerCase();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Same-origin only: the page must have been loaded from the exact
+  // host:port this request is addressed to. Not "any private IP" - that
+  // would trust other LAN devices, other Tailscale nodes, and any other
+  // localhost port. Extra origins (e.g. a proxy that rewrites Host) go in
+  // config.allowedOrigins.
+  function isAllowedOrigin(origin, hostHeader) {
     if (!origin) return true; // non-browser client (curl, scripts)
     let url;
     try {
@@ -135,9 +142,12 @@ function createGuards({ getConfig, appName }) {
     } catch (e) {
       return false; // includes the literal "null" origin
     }
-    const host = bareHost(url.hostname);
-    if (net.isIP(host)) return isPrivateIp(host);
-    return ownNames(getConfig().allowedHosts).has(host);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+    const extra = (getConfig().allowedOrigins || []).map((o) => String(o).toLowerCase().replace(/\/$/, ''));
+    if (extra.includes(url.origin.toLowerCase())) return true;
+    const scheme = url.protocol.slice(0, -1);
+    const reqHost = hostHeader ? normalizeAuthority(scheme, hostHeader) : null;
+    return reqHost !== null && url.host.toLowerCase() === reqHost;
   }
 
   /** 'ok' | 'denied'; also reports whether a session cookie should be set. */
@@ -159,7 +169,12 @@ function createGuards({ getConfig, appName }) {
     }
     if (header.startsWith('Bearer ') && safeEqual(header.slice(7), auth.password)) return { ok: true };
 
-    const token = new URL(req.url, 'http://x').searchParams.get('token');
+    let token = null;
+    try {
+      token = new URL(req.url, 'http://x').searchParams.get('token');
+    } catch (e) {
+      /* unparseable URL: no token */
+    }
     if (token !== null && safeEqual(token, auth.password)) return { ok: true, setCookie: true, fromQuery: true };
 
     return { ok: false };
@@ -172,11 +187,11 @@ function createGuards({ getConfig, appName }) {
 
   function httpMiddleware(req, res, next) {
     if (!isAllowedHost(req.headers.host)) {
-      warnOnce(`host:${req.headers.host}`, `Rejected request with unrecognized Host header "${req.headers.host}" - add it to "allowedHosts" in config.json if it's legitimate`);
+      warnOnce(`host:${req.headers.host}`, `Rejected request with unrecognized Host header "${clip(req.headers.host)}" - add it to "allowedHosts" in config.json if it's legitimate`);
       return res.status(403).type('text').send('Forbidden: unrecognized host');
     }
-    if (req.method !== 'GET' && req.method !== 'HEAD' && !isAllowedOrigin(req.headers.origin)) {
-      warnOnce(`origin:${req.headers.origin}`, `Rejected cross-site request from Origin "${req.headers.origin}"`);
+    if (req.method !== 'GET' && req.method !== 'HEAD' && !isAllowedOrigin(req.headers.origin, req.headers.host)) {
+      warnOnce(`origin:${req.headers.origin}`, `Rejected cross-site request from Origin "${clip(req.headers.origin)}" - add it to "allowedOrigins" in config.json if it's legitimate`);
       return res.status(403).type('text').send('Forbidden: cross-site request');
     }
     const result = checkAuth(req);
@@ -198,18 +213,24 @@ function createGuards({ getConfig, appName }) {
   }
 
   /** For ws's WebSocketServer `verifyClient` option. */
+  // Runs from the HTTP server's 'upgrade' event, outside Express's error
+  // handling - anything thrown here would crash the process, so fail closed.
   function verifyWsClient(info, done) {
-    const req = info.req;
-    if (!isAllowedHost(req.headers.host)) return done(false, 403, 'Forbidden: unrecognized host');
-    if (!isAllowedOrigin(req.headers.origin)) {
-      warnOnce(`ws-origin:${req.headers.origin}`, `Rejected cross-site WebSocket from Origin "${req.headers.origin}"`);
-      return done(false, 403, 'Forbidden: cross-site WebSocket');
+    try {
+      const req = info.req;
+      if (!isAllowedHost(req.headers.host)) return done(false, 403, 'Forbidden: unrecognized host');
+      if (!isAllowedOrigin(req.headers.origin, req.headers.host)) {
+        warnOnce(`ws-origin:${req.headers.origin}`, `Rejected cross-site WebSocket from Origin "${clip(req.headers.origin)}" - add it to "allowedOrigins" in config.json if it's legitimate`);
+        return done(false, 403, 'Forbidden: cross-site WebSocket');
+      }
+      if (!checkAuth(req).ok) return done(false, 401, 'Unauthorized');
+      return done(true);
+    } catch (err) {
+      return done(false, 400, 'Bad request');
     }
-    if (!checkAuth(req).ok) return done(false, 401, 'Unauthorized');
-    done(true);
   }
 
   return { httpMiddleware, verifyWsClient };
 }
 
-module.exports = { createGuards, bareHost, isPrivateIp };
+module.exports = { createGuards, bareHost };

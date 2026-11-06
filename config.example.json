@@ -4,5 +4,9 @@
   "baudRate": null,
   "bindHost": null,
   "allowedHosts": [],
-  "auth": { "username": "", "password": "" }
+  "allowedOrigins": [],
+  "auth": {
+    "username": "",
+    "password": ""
+  }
 }
