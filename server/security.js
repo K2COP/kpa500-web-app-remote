@@ -201,7 +201,7 @@ function createGuards({ getConfig, appName }) {
       //  - also reject anything the browser itself labels cross-site.
       const ctype = String(req.headers['content-type'] || '').toLowerCase();
       if (req.headers['sec-fetch-site'] === 'cross-site' || !ctype.startsWith('application/json')) {
-        warnOnce(`csrf:${req.headers.origin}`, `Rejected cross-site/non-JSON ${req.method} ${clip(req.url)} from Origin "${clip(req.headers.origin)}"`);
+        warnOnce(`csrf:${req.headers.origin}`, `Rejected cross-site/non-JSON ${req.method} ${clip(req.path)} from Origin "${clip(req.headers.origin)}"`);
         return res.status(403).type('text').send('Forbidden: cross-site request');
       }
     }
