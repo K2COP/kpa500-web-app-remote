@@ -277,15 +277,52 @@ function appendLog(line) {
   out.scrollTop = out.scrollHeight;
 }
 
+// Some remote-access proxies (TCI Remote Compactor's tunnel) can't carry
+// WebSockets. If the socket never manages to open, fall back to polling
+// /api/poll for state once a second - controls keep working, only the live
+// wire log is unavailable.
+let wsEverOpened = false;
+let wsFailures = 0;
+let pollTimer = null;
+
+function startPolling() {
+  if (pollTimer) return;
+  appendLog('(live connection unavailable through this link - polling for status instead; wire log not shown)');
+  const tick = async () => {
+    try {
+      const res = await fetch('/api/poll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      if (res.ok) renderState(await res.json());
+    } catch (e) {
+      /* transient - next tick retries */
+    }
+  };
+  tick();
+  pollTimer = setInterval(tick, 1000);
+}
+
 function connectWs() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onopen = () => {
+    wsEverOpened = true;
+    wsFailures = 0;
+  };
   ws.onmessage = (evt) => {
     const msg = JSON.parse(evt.data);
     if (msg.type === 'state') renderState(msg.payload);
     if (msg.type === 'log') appendLog(msg.payload);
   };
-  ws.onclose = () => setTimeout(connectWs, 1500);
+  ws.onclose = () => {
+    if (!wsEverOpened && ++wsFailures >= 2) {
+      startPolling();
+      return;
+    }
+    setTimeout(connectWs, 1500);
+  };
 }
 
 async function init() {

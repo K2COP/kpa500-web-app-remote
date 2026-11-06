@@ -185,7 +185,7 @@ By default the server accepts connections from any device on your network, with 
 
 **Always on (no setup needed):**
 
-- **Other websites can't control it.** A web page you happen to visit can't send commands to the server or open its live connection — requests that come from another site are refused — only the page this server itself served can. (Without this, any page open in a browser on your network could quietly reach the amplifier.)
+- **Other websites can't control it.** A web page you happen to visit can't send commands to the server or open its live connection — only the app's own page can. (Without this, any page open in a browser on your network could quietly reach the amplifier.)
 - **DNS-rebinding protection.** The server only answers when addressed by an IP address, `localhost`, this computer's own name (e.g. `my-mac.local`), or a name you've listed in `allowedHosts`. If you reach it through a tunnel or proxy that uses some other hostname and it shows `Forbidden: unrecognized host`, add that hostname to `allowedHosts` in `config.json` — the server log names the exact host it rejected.
 - **Only real serial ports.** The Connect screen only accepts ports the operating system actually reports as serial ports.
 
@@ -196,7 +196,7 @@ By default the server accepts connections from any device on your network, with 
 | `"auth": { "username": "...", "password": "..." }` | Requires a password. Browsers show a sign-in box; TCI Remote Compactor sends it from its Username/Password fields. For clients that can't do either, open the page once as `http://<ip>:8600/?token=<password>` — it's remembered in a cookie and removed from the address bar. Leave `username` empty to accept any username. |
 | `"bindHost": "127.0.0.1"` | Refuses connections from other machines entirely — use this if the only access is from this computer (or a tunnel that runs on it). |
 | `"allowedHosts": ["shack.example.net"]` | Extra hostnames to accept (see DNS-rebinding above). |
-| `"allowedOrigins": ["http://proxy.example:9000"]` | Only needed if a proxy serves the page from a different address than the one it forwards to this server, and the log shows `Rejected cross-site … from Origin "…"` — add that exact origin here. |
+| `"allowedOrigins": ["https://remote.example.net"]` | Rarely needed. Lets a proxy that serves the page from a different address use the live WebSocket connection (the log shows `Rejected cross-site WebSocket from Origin "…"`). Without it the page automatically falls back to polling, so controls still work — only the live wire log is missing. |
 
 If you want to reach the app from outside your home network, use a VPN or tunnel (Tailscale, WireGuard, TCI Remote Compactor, SSH) — don't port-forward it on your router, and set a password if anything other than you can reach it.
 

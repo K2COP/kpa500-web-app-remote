@@ -7,11 +7,12 @@
 //    only accepting Host headers that are an IP literal, localhost, this
 //    machine's own name, or something listed in config.allowedHosts - a
 //    rebinding attack always arrives with the attacker's domain as Host.
-//  - Cross-site WebSocket hijacking / cross-site requests: a page on some
-//    other site opening ws://<this-machine>:<port>/ws (which, on the KPA500,
-//    opens the serial port and can wake the amp via DTR). Blocked by
-//    requiring a browser's Origin to match the request's own host:port
-//    (or be listed in config.allowedOrigins).
+//  - Cross-site WebSocket hijacking: a page on some other site opening
+//    ws://<this-machine>:<port>/ws (which, on the KPA500, opens the serial
+//    port and can wake the amp via DTR). Blocked by requiring the browser's
+//    Origin to match the request's own host:port (or config.allowedOrigins).
+//  - Cross-site API requests: only JSON POSTs are accepted (needs a CORS
+//    preflight this server never grants), plus Sec-Fetch-Site checks.
 //  - Anyone on the network operating the device: optional password
 //    (config.auth.password). Accepted as HTTP Basic auth (what TCI Remote
 //    Compactor's Username/Password fields send), as ?token=<password> on
@@ -190,9 +191,19 @@ function createGuards({ getConfig, appName }) {
       warnOnce(`host:${req.headers.host}`, `Rejected request with unrecognized Host header "${clip(req.headers.host)}" - add it to "allowedHosts" in config.json if it's legitimate`);
       return res.status(403).type('text').send('Forbidden: unrecognized host');
     }
-    if (req.method !== 'GET' && req.method !== 'HEAD' && !isAllowedOrigin(req.headers.origin, req.headers.host)) {
-      warnOnce(`origin:${req.headers.origin}`, `Rejected cross-site request from Origin "${clip(req.headers.origin)}" - add it to "allowedOrigins" in config.json if it's legitimate`);
-      return res.status(403).type('text').send('Forbidden: cross-site request');
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      // Cross-site protection for API calls. An exact Origin match can't be
+      // used here: TCI Remote Compactor's tunnel serves the page from a
+      // random *.trycloudflare.com origin while forwarding with Host set to
+      // the LAN address, so legitimate requests never match. Instead:
+      //  - only accept JSON bodies: a page on another site can't send one
+      //    without a CORS preflight, which this server never approves;
+      //  - also reject anything the browser itself labels cross-site.
+      const ctype = String(req.headers['content-type'] || '').toLowerCase();
+      if (req.headers['sec-fetch-site'] === 'cross-site' || !ctype.startsWith('application/json')) {
+        warnOnce(`csrf:${req.headers.origin}`, `Rejected cross-site/non-JSON ${req.method} ${clip(req.url)} from Origin "${clip(req.headers.origin)}"`);
+        return res.status(403).type('text').send('Forbidden: cross-site request');
+      }
     }
     const result = checkAuth(req);
     if (!result.ok) {

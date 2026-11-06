@@ -37,6 +37,19 @@ app.get('/api/state', (req, res) => {
   res.json(kpa.getState());
 });
 
+// Fallback for clients whose proxy can't carry WebSockets (TCI Remote
+// Compactor's tunnel passes /ws through as a plain GET): the page polls this
+// once a second instead, and each poll counts as an active client for the
+// on-demand serial connection below. POST + JSON rather than GET so a page
+// on another site can't trigger it (it opens the serial port, which on the
+// KPA500 can wake the amp via DTR).
+let lastPollAt = 0;
+app.post('/api/poll', (req, res) => {
+  lastPollAt = Date.now();
+  checkConnectionState();
+  res.json(kpa.getState());
+});
+
 app.get('/api/ports', async (req, res) => {
   try {
     const ports = await kpa.listPorts();
@@ -221,6 +234,7 @@ const CLIENT_GRACE_MS = 5000;
 
 function wantsConnection() {
   if (activeClients > 0) return true;
+  if (Date.now() - lastPollAt < CLIENT_GRACE_MS) return true;
   return Boolean(lastClientDisconnectAt) && Date.now() - lastClientDisconnectAt < CLIENT_GRACE_MS;
 }
 

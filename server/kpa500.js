@@ -347,7 +347,10 @@ class KPA500 {
    * echoes back, giving us flow control without guessing per-command timing.
    */
   async set(cmd, { syncTimeoutMs = 500 } = {}) {
-    this.enqueue(cmd, { awaitResponse: false });
+    // Not awaited, but must not be left unhandled: if the port isn't
+    // connected this rejects, and an unhandled rejection crashes Node. The
+    // same failure still surfaces to the caller via the ';' sync below.
+    this.enqueue(cmd, { awaitResponse: false }).catch(() => {});
     return this.enqueue(';', { awaitResponse: true, timeoutMs: syncTimeoutMs });
   }
 
